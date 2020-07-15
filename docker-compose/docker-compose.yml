@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  server:
+    build: .
+    ports:
+      # So it can be accessed on http://0.0.0.0:8050.
+      - '8050:8050'

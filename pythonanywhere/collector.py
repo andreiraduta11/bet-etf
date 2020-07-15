@@ -13,6 +13,7 @@ from json import dump
 from typing import Dict, List
 
 from lxml.html import HtmlElement, fromstring
+from pytz import timezone
 from requests import get
 
 BVB_URL: str = (
@@ -106,7 +107,10 @@ def collect_symbols_data(symbols_list_size: int) -> None:
             break
 
     # The first element will be the time of the update.
-    symbols_list.insert(0, {'date': str(datetime.now()).split('.')[0]})
+    symbols_list.insert(
+        0,
+        {'date': str(datetime.now(timezone('Europe/Bucharest'))).split('.')[0]}
+    )
 
     with open(SYMBOLS_FILE_NAME, 'w') as symbols_file:
         dump(symbols_list, symbols_file)

@@ -229,7 +229,7 @@ class DashApplication(Dash):
                 Li('Place your orders. The order values should be the same.')
             ]),
 
-            I(f'The prices have been updated at {self.symbols_time}.')
+            I(id='symbols_time')
         ]
 
     def html_financials_inputs(self) -> Table:
@@ -355,6 +355,12 @@ class DashApplication(Dash):
             'validation': {'default': default},
             'type': 'numeric',
         }
+
+    def get_symbols_time(self) -> str:
+        if not self.symbols_time:
+            return ''
+
+        return f'The prices have been updated at {self.symbols_time}.'
 
     def get_symbols_list(self) -> List[Dict]:
         return self.symbols_list if self.symbols_list else []

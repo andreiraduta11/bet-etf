@@ -20,7 +20,10 @@ application = DashApplication()
 
 
 @application.callback(
-    Output('symbols_datatable', 'data'),
+    [
+        Output('symbols_time', 'children'),
+        Output('symbols_datatable', 'data')
+    ],
     [
         Input('symbols_list_size', 'value'),
         Input('invest_amount', 'value'),
@@ -28,7 +31,7 @@ application = DashApplication()
         Input('symbols_datatable', 'data_timestamp')
     ],
     [
-        State('symbols_datatable', 'data'),
+        State('symbols_datatable', 'data')
     ]
 )
 def symbols_datatable_callback(
@@ -60,7 +63,8 @@ def symbols_datatable_callback(
     application.set_transaction_fee(transaction_fee)
 
     application.calculate_orders()
-    return application.get_symbols_list()
+
+    return application.get_symbols_time(), application.get_symbols_list()
 
 
 application.collect_symbols_data()

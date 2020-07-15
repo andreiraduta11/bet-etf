@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 
 SYMBOLS_FILE_NAME='symbols-data.json'
 

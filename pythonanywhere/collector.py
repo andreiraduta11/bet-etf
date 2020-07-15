@@ -1,8 +1,16 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 
+"""
+    The module contains methods to collect data about the symbols of the BET
+Index from the BVB and Tradeville websites.
+
+    Andrei Răduță andrei.raduta11@gmail.com
+"""
+
+from datetime import datetime
 from json import dump
-from typing import List
+from typing import Dict, List
 
 from lxml.html import HtmlElement, fromstring
 from requests import get
@@ -17,8 +25,8 @@ TRADEVILLE_URL: str = 'https://www.tradeville.eu/actiuni/actiuni-'
 TRADEVILLE_XPATH: str = '//div[@class="quotationTblLarge"]'
 
 
-SYMBOLS_FILE_NAME = 'symbols-data.json'
-SYMBOLS_LIST_SIZE = 17
+SYMBOLS_FILE_NAME: str = 'symbols-data.json'
+SYMBOLS_LIST_SIZE: int = 17
 
 
 def collect_symbols_data(symbols_list_size: int) -> None:
@@ -26,32 +34,34 @@ def collect_symbols_data(symbols_list_size: int) -> None:
         Get the details of the *specified* first elements of the BET Index.
         Use the websites of the Bucharest Stock Exchange and Tradeville.
 
+        The first element of the list will be the datetime of the operation.
+
         There are two steps. The result consists of a list of dictionaries.
         The keys are represented by the union of the following:
-
         1) Get the list of symbols with some information from BVB.
-            0. symbol.
-            1. company.
-            2. shares.
-            3. price.
-            4. free float factor.
-            5. representation factor.
-            6. price correction factor.
-            7. weight.
+            0. symbol
+            1. company
+            2. shares
+            3. price
+            4. free_float_factor
+            5. representation_factor
+            6. price_correction_factor
+            7. weight
 
         2) Get more details about every symbol from Tradeville website.
-            1. last price.
-            3. variation.
-            5. open price.
-            7. max/min price.
-            9. medium price.
-            11. volume.
-            13. dividend yield.
+            1.  last_price
+            3.  variation
+            5.  open_price
+            7.  max/min_price
+            9.  medium_price
+            11. volume
+            13. dividend_yield
 
         The number before each key is the index of it in the raw data.
     """
-    symbols_list: List = []
+    symbols_list: List[Dict] = []
 
+    # Get the list of symbols from the Bucharest Stock Exchange website.
     bvb_document = get_html_document(url=BVB_URL)
 
     # Extract the data of each cell (HTML TD) from each row (HTML TR).
@@ -76,7 +86,7 @@ def collect_symbols_data(symbols_list_size: int) -> None:
             # Build the list of symbols.
             symbols_list.append({
                 'symbol': bvb_row[0],
-                'weight': float(bvb_row[7]),
+                'weight': float(bvb_row[7]) / 100.0,
                 'open_price': float(trv_row[5]),
                 'buy_price': float(trv_row[1]),
                 'variation': float(trv_row[3].replace('%', '')),
@@ -92,8 +102,11 @@ def collect_symbols_data(symbols_list_size: int) -> None:
                 'price_correction_factor': float(bvb_row[6]),
             })
 
-            # Select only the first column from Tradeville.
+            # Select only the first column from the Tradeville info table.
             break
+
+    # The first element will be the time of the update.
+    symbols_list.insert(0, {'date': str(datetime.now()).split('.')[0]})
 
     with open(SYMBOLS_FILE_NAME, 'w') as symbols_file:
         dump(symbols_list, symbols_file)

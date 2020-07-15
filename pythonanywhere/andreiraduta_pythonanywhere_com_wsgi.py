@@ -2,6 +2,8 @@
 # web application at http://andreiraduta.pythonanywhere.com
 # It works by setting the variable 'application' to a WSGI handler of some
 # description.
+#
+# Andrei Răduță andrei.raduta11@gmail.com
 
 # +++++++++++ GENERAL DEBUGGING TIPS +++++++++++
 # getting imports and sys.path right can be fiddly!

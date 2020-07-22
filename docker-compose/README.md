@@ -1,5 +1,11 @@
 # Usage
 
+## This code should be treated as an example of Docker Compose Project.
+
+## The functionality of the code may not be complete.
+
+## The PythonAnywhere version is the correct one.
+
 ## Requirements
 
 -   `docker`

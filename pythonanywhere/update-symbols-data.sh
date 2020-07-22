@@ -8,5 +8,7 @@ python3 collector.py
 
 # Make it public on GitHub.
 git add $SYMBOLS_FILE_NAME
-git commit -m "Update symbols data"
+
+git commit --amend --no-edit
+
 git push -f

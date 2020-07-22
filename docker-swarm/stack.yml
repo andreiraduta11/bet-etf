@@ -1,0 +1,105 @@
+version: '3.7'
+
+
+services: # The services are ordered alphabetically.
+  application:
+    image: etf_bet_application
+    depends_on:
+      - collector
+      - mysql
+
+    networks:
+      - application_mysql_network
+      - application_visualizer_network
+
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1 # The same with the number of replicas.
+      restart_policy:
+        condition: on-failure
+
+
+  collector:
+    image: etf_bet_collector
+    depends_on:
+      - mysql
+
+    networks:
+      - collector_mysql_network
+
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1 # The same with the number of replicas.
+      restart_policy:
+        condition: on-failure
+
+  grafana:
+    image: grafana/grafana:latest
+    depends_on:
+      - mysql
+    ports:
+      - '3000:3000' # So it can be accessed on http://0.0.0.0:3000.
+
+    volumes:
+      - './grafana:/var/lib/grafana'
+    networks:
+      - grafana_mysql_network
+
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+
+  mysql:
+    image: mysql:latest
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD='yes' # A user is created in the init.sql.
+
+    volumes:
+      - './mysql/lib:/var/lib/mysql'
+      - './mysql/init.sql:/docker-entrypoint-initdb.d/init.sql'
+    networks:
+      - collector_mysql_network
+      - grafana_mysql_network
+      - application_mysql_network
+
+    healthcheck:
+        test: 'mysqladmin ping -h localhost || exit 1'
+        retries: 10
+        timeout: 3s
+        interval: 3s
+
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager] # Keep database only on manager.
+      restart_policy:
+        condition: on-failure
+
+
+  visualizer:
+    image: etf_bet_visualizer
+    depends_on:
+      - application
+    ports:
+      # So it can be accessed on http://localhost:8050.
+      - '8050:8050'
+
+    networks:
+      - application_visualizer_network
+
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1 # The same with the number of replicas.
+      restart_policy:
+        condition: on-failure
+
+networks:
+  collector_mysql_network:
+  grafana_mysql_network:
+  application_mysql_network:
+  application_visualizer_network:

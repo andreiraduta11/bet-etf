@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
+# This script will remove the docker stack.
+# It uses the environment variable ETF_BET_STACK_NAME, so remeber to use
+# source script.sh, not ./script.sh.
 
-# Stop the application.
-docker-compose down --rmi all --volumes --remove-orphans --timeout 30
+# Introduce a delay to be sure that the stack is removed.
+docker stack rm $BET_ETF_STACK_NAME;
+sleep 15
 
 # Remove the dandling containers, images and volumes.
 # Do not show errors, when no dandling object exist.

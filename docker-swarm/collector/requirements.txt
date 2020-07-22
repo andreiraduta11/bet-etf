@@ -1,0 +1,3 @@
+lxml
+mysql-connector-python
+requests

@@ -250,8 +250,6 @@ class DashApplication(Dash):
                 # Select only the first column from the Tradeville info table.
                 break
 
-        print(symbols_list_size, self.symbols_list, flush=True)
-
         self.symbols_time = str(
             datetime.now(timezone('Europe/Bucharest'))
         ).split('.')[0]

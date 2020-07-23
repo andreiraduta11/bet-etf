@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 
 SYMBOLS_FILE_NAME='symbols-data.json'
 
 # Get the data in the specified file.
-python3 collector.py
+/usr/bin/python3 collector.py
 
 # Make it public on GitHub.
-git add $SYMBOLS_FILE_NAME
+/usr/bin/git add $SYMBOLS_FILE_NAME
 
-git commit --amend --no-edit
+/usr/bin/git commit -am "Daily PythonAnywhere Symbols Table update"
 
-git push -f
+/usr/bin/git push -f

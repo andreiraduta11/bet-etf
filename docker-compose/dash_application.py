@@ -293,8 +293,8 @@ class DashApplication(Dash):
                 Li('Andrei Răduță'),
                 Li('andrei.raduta11@gmail.com'),
                 Li(Link(
-                    children='GitHub project repository',
-                    href='https://github.com/andreiraduta1101/bet-etf'
+                    children='https://github.com/andreiraduta11/bet-etf',
+                    href='https://github.com/andreiraduta11/bet-etf'
                 ))
             ]),
 

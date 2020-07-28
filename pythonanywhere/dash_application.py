@@ -36,7 +36,7 @@ TRANSACTION_FEE = 0.71
 MINIMUM_ORDER_VALUE = 270
 
 DATA_URL: str = (
-    'https://raw.githubusercontent.com/andreiraduta1101/bet-etf/master/'
+    'https://raw.githubusercontent.com/andreiraduta11/bet-etf/master/'
     'pythonanywhere/symbols-data.json'
 )
 
@@ -208,8 +208,8 @@ class DashApplication(Dash):
                 Li('Andrei Răduță'),
                 Li('andrei.raduta11@gmail.com'),
                 Li(Link(
-                    children='GitHub project repository',
-                    href='https://github.com/andreiraduta1101/bet-etf'
+                    children='https://github.com/andreiraduta11/bet-etf',
+                    href='https://github.com/andreiraduta11/bet-etf'
                 ))
             ]),
 

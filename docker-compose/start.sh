@@ -8,6 +8,6 @@ docker-compose up --build --force-recreate --always-recreate-deps \
 # Introduce a delay to make sure the service has started.
 sleep 5
 
-echo "Access the program at http://0.0.0.0:8080"
+echo "Access the program at http://0.0.0.0:8050"
 
-# xdg-open http://0.0.0.0:8080
+# xdg-open http://0.0.0.0:8050

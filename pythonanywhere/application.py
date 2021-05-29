@@ -12,7 +12,6 @@ application information when changes from the user are received.
 from typing import Dict, List
 
 from dash.dependencies import Input, Output, State
-
 from dash_application import DashApplication
 
 # For deployment, application.server (which is the actual flask app) for WSGI.
@@ -20,26 +19,21 @@ application = DashApplication()
 
 
 @application.callback(
+    [Output("symbols_time", "children"), Output("symbols_datatable", "data")],
     [
-        Output('symbols_time', 'children'),
-        Output('symbols_datatable', 'data')
+        Input("symbols_list_size", "value"),
+        Input("invest_amount", "value"),
+        Input("transaction_fee", "value"),
+        Input("symbols_datatable", "data_timestamp"),
     ],
-    [
-        Input('symbols_list_size', 'value'),
-        Input('invest_amount', 'value'),
-        Input('transaction_fee', 'value'),
-        Input('symbols_datatable', 'data_timestamp')
-    ],
-    [
-        State('symbols_datatable', 'data')
-    ]
+    [State("symbols_datatable", "data")],
 )
 def symbols_datatable_callback(
     symbols_list_size,
     invest_amount,
     transaction_fee,
     symbols_data_timestamp,
-    symbols_data
+    symbols_data,
 ) -> List[Dict]:
     """
         This callback runs whenever the user changes data in the Financials or

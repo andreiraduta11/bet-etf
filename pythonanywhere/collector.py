@@ -25,7 +25,7 @@ TRADEVILLE_XPATH: str = '//div[@class="quotationTblLarge"]'
 
 
 SYMBOLS_FILE_NAME: str = "symbols-data.json"
-SYMBOLS_LIST_SIZE: int = 17
+SYMBOLS_LIST_SIZE: int = 19
 
 
 def collect_symbols_data(symbols_list_size: int) -> None:

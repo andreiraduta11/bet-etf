@@ -22,9 +22,10 @@
 # in your home directory under version control, then use something like this:
 from sys import path
 
-application_path = '/home/andreiraduta/bet-etf'
+application_path = "/home/andreiraduta/bet-etf"
 if application_path not in path:
     path.append(application_path)
 
 from application import application
+
 application = application.server

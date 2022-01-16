@@ -31,7 +31,7 @@ from dash_table.Format import Format, Scheme
 from lxml.html import HtmlElement, fromstring
 
 
-SYMBOLS_LIST_SIZE = 17
+SYMBOLS_LIST_SIZE = 19
 
 INVEST_AMOUNT = 1000
 TRANSACTION_FEE = 0.71

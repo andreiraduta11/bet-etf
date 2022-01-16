@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-
-
 """
     The module contains methods to collect data about the symbols of the BET
 Index from the BVB and Tradeville websites.
@@ -12,7 +9,7 @@ from datetime import datetime
 from json import dump
 from typing import Dict, List
 
-from lxml.html import HtmlElement, fromstring
+from lxml.html import fromstring, HtmlElement
 from pytz import timezone
 from requests import get
 
@@ -20,12 +17,13 @@ BVB_URL: str = "https://www.bvb.ro/FinancialInstruments/Indices/IndicesProfiles.
 BVB_XPATH: str = '//*[@id="gvC"]//tbody'
 
 
-TRADEVILLE_URL: str = "https://www.tradeville.eu/actiuni/actiuni-"
-TRADEVILLE_XPATH: str = '//div[@class="quotationTblLarge"]'
+SYMBOL_URL: str = (
+    "https://m.bvb.ro/FinancialInstruments/Details/FinancialInstrumentsDetails.aspx?s="
+)
 
 
 SYMBOLS_FILE_NAME: str = "symbols-data.json"
-SYMBOLS_LIST_SIZE: int = 17
+SYMBOLS_LIST_SIZE: int = 20
 
 
 def collect_symbols_data(symbols_list_size: int) -> None:
@@ -58,7 +56,7 @@ def collect_symbols_data(symbols_list_size: int) -> None:
 
     The number before each key is the index of it in the raw data.
     """
-    symbols_list: List[Dict] = []
+    symbols_list: List[Dict[str, float]] = []
 
     # Get the list of symbols from the Bucharest Stock Exchange website.
     bvb_document = get_html_document(url=BVB_URL)
@@ -66,43 +64,56 @@ def collect_symbols_data(symbols_list_size: int) -> None:
     # Extract the data of each cell (HTML TD) from each row (HTML TR).
     # Get the table with the symbols. Xpath returns a tbody, so parse it.
     for bvb_row in bvb_document.xpath(BVB_XPATH)[0][:symbols_list_size]:
-        bvb_row = [data.text_content().strip() for data in bvb_row]
+        try:
+            bvb_row = [data.text_content().strip() for data in bvb_row]
 
-        # Get the more information from Tradeville using the symbol name.
-        tradeville_document = get_html_document(url=TRADEVILLE_URL + bvb_row[0])
+            # Get the more information from Tradeville using the symbol name.
+            symbol_document = get_html_document(url=SYMBOL_URL + bvb_row[0])
+            symbol_data: Dict[str, float] = {
+                "symbol": bvb_row[0],
+                "weight": float(bvb_row[7].replace(",", ".")),
+                "shares": int(bvb_row[2].replace(".", "")),
+                "company": bvb_row[1],
+                "free_float_factor": float(bvb_row[4].replace(",", ".")),
+                "representation_factor": float(bvb_row[5].replace(",", ".")),
+                "price_correction_factor": float(bvb_row[6].replace(",", ".")),
+            }
 
-        for trv_row in tradeville_document.xpath(TRADEVILLE_XPATH):
-            trv_row = [data.text_content().strip() for data in trv_row]
+            for row in symbol_document.xpath(
+                '//*[@id="ctl00_body_upd"]/div[2]/div/div[1]'
+            )[0][1][0]:
+                if row[0].text == "Ultimul pret":
+                    symbol_data["buy_price"] = float(row[1][0].text.replace(",", "."))
 
-            # Some yields are 'n/a'.
-            try:
-                dividend_yield = float(trv_row[13].replace("%", ""))
-            except Exception:
-                dividend_yield = 0
+                if row[0].text == "Pret deschidere":
+                    symbol_data["open_price"] = float(row[1][0].text.replace(",", "."))
+
+                if row[0].text == "Pret maxim":
+                    symbol_data["max_price"] = float(row[1][0].text.replace(",", "."))
+
+                if row[0].text == "Pret minim":
+                    symbol_data["min_price"] = float(row[1][0].text.replace(",", "."))
+
+                if row[0].text == "Pret mediu":
+                    symbol_data["medium_price"] = float(
+                        row[1][0].text.replace(",", ".")
+                    )
+
+                if row[0].text == "Var (%)":
+                    symbol_data["variation"] = float(row[1][0].text.replace(",", "."))
+
+            for row in symbol_document.xpath(
+                '//*[@id="ctl00_body_ctl01_IndicatorsControl_dvIndicatori"]'
+            )[0]:
+                if "DIVY" in row[0].text:
+                    symbol_data["dividend_yield"] = float(
+                        row[1][0].text.replace(",", ".")
+                    )
 
             # Build the list of symbols.
-            symbols_list.append(
-                {
-                    "symbol": bvb_row[0],
-                    "weight": float(bvb_row[7]) / 100.0,
-                    "open_price": float(trv_row[5]),
-                    "buy_price": float(trv_row[1]),
-                    "variation": float(trv_row[3].replace("%", "")),
-                    "medium_price": float(trv_row[9]),
-                    "min_price": float(trv_row[7].split("/")[1]),
-                    "max_price": float(trv_row[7].split("/")[0]),
-                    "dividend_yield": dividend_yield,
-                    "volume": int(trv_row[11].replace(",", "")),
-                    "shares": int(bvb_row[2].replace(",", "")),
-                    "company": bvb_row[1],
-                    "free_float_factor": float(bvb_row[4]),
-                    "representation_factor": float(bvb_row[5]),
-                    "price_correction_factor": float(bvb_row[6]),
-                }
-            )
-
-            # Select only the first column from the Tradeville info table.
-            break
+            symbols_list.append(symbol_data)
+        except Exception as exc:
+            print(exc)
 
     # The first element will be the time of the update.
     symbols_list.insert(

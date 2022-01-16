@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-
-
 """
     The module contains the instance of the DashApplication.
     Here is defined the callback for this instance that will update the

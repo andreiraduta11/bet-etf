@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-
-
 """
     The module contains the Dash application with which the user will interact.
 
@@ -16,26 +13,22 @@
     Andrei Răduță andrei.raduta11@gmail.com
 """
 
+from json import loads
+from typing import Any, Dict, List
 
-import datetime
-import typing
-import json
-
-import pytz
 import requests
 from dash import Dash
 from dash_core_components import Input, Link
-from dash_html_components import H1, H2, B, Div, I, Li, Ol, Table, Td, Tr, Ul
+from dash_html_components import B, Div, H1, H2, I, Li, Ol, Table, Td, Tr, Ul
 from dash_table import DataTable
 from dash_table.Format import Format, Scheme
-from lxml.html import HtmlElement, fromstring
 
 
-SYMBOLS_LIST_SIZE = 19
+SYMBOLS_LIST_SIZE = 20
 
-INVEST_AMOUNT = 1000
-TRANSACTION_FEE = 0.71
-MINIMUM_ORDER_VALUE = 270
+INVEST_AMOUNT = 10000
+TRANSACTION_FEE = 0.49
+MINIMUM_ORDER_VALUE = 310
 
 
 DATA_URL: str = (
@@ -50,8 +43,8 @@ class DashApplication(Dash):
 
         self.symbols_time = ""
         self.symbols_list = []
-        self.invest_amount = 0
-        self.transaction_fee = 0
+        self.invest_amount = INVEST_AMOUNT
+        self.transaction_fee = TRANSACTION_FEE
 
     def calculate_orders(self) -> None:
         """
@@ -71,129 +64,152 @@ class DashApplication(Dash):
 
         This process is done in 2 iterations.
         """
-        # Work with net values.
-        invest_amount = self.invest_amount * (1 - self.transaction_fee)
-        print(f"Net invest_amount is {invest_amount}.", flush=True)
-
-        actual_portfolio = sum(
-            [
-                s.get("buy_price", 0) * s.get("current_quantity", 0)
-                for s in self.symbols_list
-            ]
-        )
+        actual_portfolio = 0
+        for s in self.symbols_list:
+            actual_portfolio += s.get("buy_price", 0) * s.get("current_quantity", 0)
+        target_portfolio = actual_portfolio + self.invest_amount
         print(f"The actual_portfolio is {actual_portfolio}.", flush=True)
-
-        target_portfolio = actual_portfolio + invest_amount
-        print(f"The target_portfolio is {target_portfolio}.", flush=True)
 
         # Adapt the weights, because not all the index symbols are included.
         # If 90% of the index is covered, multiplty each weight by (1/0.9).
-        scale_factor = 1 / sum([s.get("weight", 0) for s in self.symbols_list])
+        scale_factor = 1.0 / sum(
+            [s.get("weight", 0) / 100.0 for s in self.symbols_list]
+        )
+
+        # Find the item most further away from what it should actually be. Then we calculate
+        # the target portfolio based on that for us to understand what we should buy forward.
+        difference_min = 0
+        for s in self.symbols_list:
+            # Update the weight, considering the new scale_factor.
+            weight = s["weight"]
+            s.update(
+                {
+                    "weight": weight,
+                    "weight_buy": weight * scale_factor,
+                }
+            )
+
+            weight_buy = weight * scale_factor / 100.0
+            value_now = s.get("buy_price", 0) * s.get("current_quantity", 0)
+            value_fut = actual_portfolio * weight_buy
+
+            if (difference := value_fut - value_now) and (difference_min > difference):
+                target_portfolio = value_now / weight_buy
+                difference_min = difference
+        print(f"The target_portfolio is {target_portfolio}.", flush=True)
 
         # First iteration. Check for differences. Add if they are positive.
-        orders: typing.Dict[str, float] = {}
+        symbol_to_buy_value: Dict[str, float] = {}
 
+        # Calculate the normalized value to buy, normalizing to the self.invest_amount.
+        # Calculate first how much we need more of a symbol to reach the target.
+        total_value_buy: float = target_portfolio - actual_portfolio
+        total_value_extra: float = max(0, self.invest_amount - total_value_buy)
         for s in self.symbols_list:
-            # Update the weight. considering the new scale_factor.
-            s.update({"weight": s.get("weight", 0) * scale_factor})
+            weight_buy = s["weight_buy"] / 100.0
+            value_buy = (target_portfolio * weight_buy) - (
+                s.get("buy_price", 0) * s.get("current_quantity", 0)
+            )
 
-            actual = s.get("buy_price", 0) * s.get("current_quantity", 0)
-            target = target_portfolio * s.get("weight")
+            if not total_value_extra:
+                difference = value_buy / total_value_buy * self.invest_amount
+            else:
+                difference = value_buy + total_value_extra * weight_buy
 
-            # Calculate first how much we need more of a symbol to reach the target.
-            difference = target - actual
             if difference > 0:
-                orders[s.get("symbol")] = difference
+                symbol_to_buy_value[s.get("symbol")] = difference
 
-        print(f"Orders after initial: {orders}.", flush=True)
-
-        total_differences = sum(orders.values())
-        if total_differences < invest_amount:
-            # Distribute what is left in an weighted manner.
-            total_differences = invest_amount - total_differences
-
-            for symbol in orders:
-                weight = next(
-                    s.get("weight", 0)
-                    for s in self.symbols_list
-                    if s.get("symbol") == symbol
-                )
-                orders[symbol] += total_differences * weight
-
-        else:
-            scale_factor = invest_amount / total_differences
-            for symbol in orders:
-                orders[symbol] *= scale_factor
+        print(f"To buy after 1st pass: {symbol_to_buy_value}.", flush=True)
 
         # First, eliminate the orders that cannot be done because of fee.
         symbols_heap = sorted(self.symbols_list, key=lambda s: s.get("weight"))
-        while True:
+        while symbols_heap:
             # Get the next symbol with the lowest weight.
-            print(orders, flush=True)
-            symbol = symbols_heap[0]
+            symbol = symbols_heap.pop(0)
+            symbol_name = symbol["symbol"]
 
             # Get its current allocated amount of money for purchase.
-            price = symbol.get("buy_price", 0)
-            value = orders.get(symbol.get("symbol"), 0)
+            buy_price = symbol.get("buy_price", 0)
+            buy_value = symbol_to_buy_value.get(symbol.get("symbol"), 0)
 
             # Make transaction fee-efficient.
-            if (value // price) * price <= MINIMUM_ORDER_VALUE:
+            if (buy_value // buy_price) * buy_price <= MINIMUM_ORDER_VALUE:
                 symbols_heap.pop(0)
-                orders.pop(symbol.get("symbol"), 0)
+                symbol_to_buy_value.pop(symbol.get("symbol"), 0)
 
-                total_value = sum([value for value in orders.values()])
-                for key in orders.keys():
-                    orders[key] += value * (orders[key] / total_value)
+                # Distribute the money to the remaining symbols.
+                total_to_buy = sum(symbol_to_buy_value.values())
+                for key in symbol_to_buy_value.keys():
+                    symbol_to_buy_value[key] += buy_value * (
+                        symbol_to_buy_value[key] / total_to_buy
+                    )
             else:
                 break
 
-        print(f"Orders after eliminating the impossible ones: {orders}.", flush=True)
+        print(f"To buy after 2nd pass: {symbol_to_buy_value}.", flush=True)
 
         # Calculate the exact values of the buying orders.
         # Sort the list by price, to use the remainders from each purchase.
         symbols_heap = sorted(
             self.symbols_list, key=lambda s: s.get("buy_price"), reverse=True
         )
-
+        print(symbol_to_buy_value)
         while symbols_heap:
             # Get the next symbol with the biggest price.
             symbol = symbols_heap.pop(0)
+            symbol_name = symbol["symbol"]
 
             # Get its current allocated amount of money for purchase.
-            price = symbol.get("buy_price", 0)
-            value = orders.pop(symbol.get("symbol"), 0)
+            buy_price = symbol.get("buy_price", 0)
+            buy_value = (
+                symbol_to_buy_value.pop(symbol_name, 0)
+                * (1 - self.transaction_fee / 100.0)
+                - 1.49
+            )
 
             # Calculate the price, quantity and the value of the order.
-            order = {
-                "buy_quantity": value // price if price else 0,
-                "order_value": (value // price) * price if price else 0,
-            }
+            if buy_price:
+                order = {
+                    "buy_price": buy_price,
+                    "buy_quantity": buy_value // buy_price,
+                    "order_value": round(
+                        (buy_value // buy_price)
+                        * buy_price
+                        * (1 + self.transaction_fee / 100.0)
+                        + 1.49,
+                        2,
+                    ),
+                    "symbol": symbol_name,
+                }
+            else:
+                order = {}
 
             # Make transaction fee-efficient.
             if order.get("order_value") <= MINIMUM_ORDER_VALUE:
                 order = {"buy_quantity": 0, "order_value": 0}
+            else:
+                print(order)
 
             # Calculate the value of remaining money after executing the
             # order for the current symbol. Distribute the rest to the others.
-            value -= order.get("order_value")
+            remaining = buy_value - order.get("order_value")
 
             # Distribute the remainder from this purchase.
-            total_value = sum([value for value in orders.values()])
-            for key in orders.keys():
-                orders[key] += value * (orders[key] / total_value)
-
-            # Add the tax in the order value.
-            order["order_value"] = round(
-                order["order_value"] * (1 + self.transaction_fee), 2
-            )
+            total_to_buy = sum(symbol_to_buy_value.values())
+            for key in symbol_to_buy_value.keys():
+                symbol_to_buy_value[key] += remaining * (
+                    symbol_to_buy_value[key] / total_to_buy
+                )
 
             # Update the columns in the table.
             for item in self.symbols_list:
-                if item["symbol"] == symbol["symbol"]:
+                if item["symbol"] == symbol_name:
                     item.update(order)
                     break
 
-        self.symbols_list = sorted(self.symbols_list, key=lambda s: s.get("symbol"))
+        self.symbols_list = sorted(
+            self.symbols_list, key=lambda s: s.get("symbol")
+        )
 
     def collect_symbols_data(self, symbols_list_size: int = SYMBOLS_LIST_SIZE) -> None:
         """
@@ -205,8 +221,8 @@ class DashApplication(Dash):
         response = requests.get(DATA_URL)
         response.raise_for_status()
 
-        self.symbols_time = json.loads(response.content)[0].get("date")
-        self.symbols_list = json.loads(response.content)[1 : symbols_list_size + 1]
+        self.symbols_time = loads(response.content)[0].get("date")
+        self.symbols_list = loads(response.content)[1 : symbols_list_size + 1]
 
     def html_init_layout(self) -> None:
         """
@@ -227,7 +243,7 @@ class DashApplication(Dash):
             ]
         )
 
-    def html_instruction_list(self) -> typing.List:
+    def html_instruction_list(self) -> List:
         return [
             H1("BET ETF Calculator"),
             Ul(
@@ -324,6 +340,11 @@ class DashApplication(Dash):
                     "type": "text",
                 },
                 self.html_number_datatable_cell(
+                    id="weight",
+                    name="Index Weight (%)",
+                    precision=2,
+                ),
+                self.html_number_datatable_cell(
                     id="current_quantity",
                     name="Current Quantity",
                     editable=True,
@@ -384,18 +405,18 @@ class DashApplication(Dash):
         editable: bool = False,
         precision: int = 0,
         default: int = 0,
-    ) -> typing.Dict[str, typing.Any]:
+    ) -> Dict[str, Any]:
         """
         Create a Dash DataTable cell with type number.
         """
         return {
             "editable": editable,
-            "id": id,
             "format": Format(precision=precision, scheme=Scheme.fixed),
+            "id": id,
             "name": name,
             "on_change": {"failure": "default"},
-            "validation": {"default": default},
             "type": "numeric",
+            "validation": {"default": default},
         }
 
     def get_symbols_time(self) -> str:
@@ -404,14 +425,19 @@ class DashApplication(Dash):
 
         return f"The prices have been updated at {self.symbols_time}."
 
-    def get_symbols_list(self) -> typing.List[typing.Dict]:
+    def get_symbols_list(self) -> List[Dict]:
         return self.symbols_list if self.symbols_list else []
 
-    def set_symbols_list(self, symbols_list: typing.List[typing.Dict]) -> None:
+    def set_symbols_list(self, symbols_list: List[Dict]) -> None:
         self.symbols_list = symbols_list
 
     def set_invest_amount(self, invest_amount: float) -> None:
         self.invest_amount = invest_amount
 
     def set_transaction_fee(self, transaction_fee: float) -> None:
-        self.transaction_fee = transaction_fee / 100.0
+        self.transaction_fee = transaction_fee
+
+
+if __name__ == "__main__":
+    app = DashApplication()
+    app.calculate_orders()

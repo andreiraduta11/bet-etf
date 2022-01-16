@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 SYMBOLS_FILE_NAME='symbols-data.json'
 
 # Get the data in the specified file.

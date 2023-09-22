@@ -91,7 +91,7 @@ class DashApplication(Dash):
         scale_factor = 1 / sum([s.get("weight", 0) for s in self.symbols_list])
 
         # First iteration. Check for differences. Add if they are positive.
-        orders: typing.Dict[str, float] = {}
+        orders: dict[str, float] = {}
 
         for s in self.symbols_list:
             # Update the weight. considering the new scale_factor.
@@ -142,7 +142,7 @@ class DashApplication(Dash):
                 orders.pop(symbol.get("symbol"), 0)
 
                 total_value = sum([value for value in orders.values()])
-                for key in orders.keys():
+                for key in orders:
                     orders[key] += value * (orders[key] / total_value)
             else:
                 break

@@ -81,15 +81,11 @@ class DashApplication(Dash):
         difference_min = 0
         for s in self.symbols_list:
             # Update the weight, considering the new scale_factor.
-            weight = s["weight"]
-            s.update(
-                {
-                    "weight": weight,
-                    "weight_buy": weight * scale_factor,
-                }
-            )
-
+            weight = min(s["weight"], weight_total)
             weight_buy = weight * scale_factor / 100.0
+            weight_total -= weight_buy
+            s.update({"weight": weight, "weight_buy": weight_buy * 100.0})
+
             value_now = s.get("buy_price", 0) * s.get("current_quantity", 0)
             value_fut = actual_portfolio * weight_buy
 
@@ -111,10 +107,10 @@ class DashApplication(Dash):
                 s.get("buy_price", 0) * s.get("current_quantity", 0)
             )
 
-            if not total_value_extra:
-                difference = value_buy / total_value_buy * self.invest_amount
-            else:
+            if total_value_extra:
                 difference = value_buy + total_value_extra * weight_buy
+            else:
+                difference = value_buy / total_value_buy * self.invest_amount
 
             if difference > 0:
                 symbol_to_buy_value[s.get("symbol")] = difference
@@ -134,7 +130,6 @@ class DashApplication(Dash):
 
             # Make transaction fee-efficient.
             if (buy_value // buy_price) * buy_price <= MINIMUM_ORDER_VALUE:
-                symbols_heap.pop(0)
                 symbol_to_buy_value.pop(symbol.get("symbol"), 0)
 
                 # Distribute the money to the remaining symbols.
@@ -143,8 +138,6 @@ class DashApplication(Dash):
                     symbol_to_buy_value[key] += buy_value * (
                         symbol_to_buy_value[key] / total_to_buy
                     )
-            else:
-                break
 
         print(f"To buy after 2nd pass: {symbol_to_buy_value}.", flush=True)
 
@@ -161,21 +154,20 @@ class DashApplication(Dash):
 
             # Get its current allocated amount of money for purchase.
             buy_price = symbol.get("buy_price", 0)
-            buy_value = (
-                symbol_to_buy_value.pop(symbol_name, 0)
-                * (1 - self.transaction_fee / 100.0)
-                - 1.49
+            buy_value = max(
+                0,
+                (symbol_to_buy_value.pop(symbol_name, 0) - 1.49)
+                * (1 - self.transaction_fee / 100.0),
             )
-
             # Calculate the price, quantity and the value of the order.
             if buy_price:
+
+                buy_quantity = buy_value // buy_price
                 order = {
                     "buy_price": buy_price,
-                    "buy_quantity": buy_value // buy_price,
+                    "buy_quantity": buy_quantity,
                     "order_value": round(
-                        (buy_value // buy_price)
-                        * buy_price
-                        * (1 + self.transaction_fee / 100.0)
+                        buy_quantity * buy_price * (1 + self.transaction_fee / 100.0)
                         + 1.49,
                         2,
                     ),
@@ -207,9 +199,7 @@ class DashApplication(Dash):
                     item.update(order)
                     break
 
-        self.symbols_list = sorted(
-            self.symbols_list, key=lambda s: s.get("symbol")
-        )
+        self.symbols_list = sorted(self.symbols_list, key=lambda s: s.get("symbol"))
 
     def collect_symbols_data(self, symbols_list_size: int = SYMBOLS_LIST_SIZE) -> None:
         """

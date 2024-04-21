@@ -1,6 +1,7 @@
-[master 9f4a8ffcc] Update symbols list size in collector.py
+('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[master 0aa1818c9] Update symbols list size in collector.py
  Author: Andrei Raduta <andreiraduta@fb.com>
  Date: Sun Jan 16 17:56:35 2022 +0000
- 7 files changed, 163 insertions(+), 124 deletions(-)
+ 7 files changed, 185 insertions(+), 145 deletions(-)
  mode change 100644 => 100755 pythonanywhere/dash_application.py
  create mode 100644 pythonanywhere/output.txt

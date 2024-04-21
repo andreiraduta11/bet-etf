@@ -81,9 +81,8 @@ class DashApplication(Dash):
         difference_min = 0
         for s in self.symbols_list:
             # Update the weight, considering the new scale_factor.
-            weight = min(s["weight"], weight_total)
+            weight = s["weight"]
             weight_buy = weight * scale_factor / 100.0
-            weight_total -= weight_buy
             s.update({"weight": weight, "weight_buy": weight_buy * 100.0})
 
             value_now = s.get("buy_price", 0) * s.get("current_quantity", 0)

@@ -61,59 +61,59 @@ def collect_symbols_data(symbols_list_size: int) -> None:
     # Get the list of symbols from the Bucharest Stock Exchange website.
     bvb_document = get_html_document(url=BVB_URL)
 
+    # We have this in place because there are scenarios where the sum is bigger than 100.
+    weight_total = 100.0
+
     # Extract the data of each cell (HTML TD) from each row (HTML TR).
     # Get the table with the symbols. Xpath returns a tbody, so parse it.
     for bvb_row in bvb_document.xpath(BVB_XPATH)[0][:symbols_list_size]:
-        try:
-            bvb_row = [data.text_content().strip() for data in bvb_row]
+        bvb_row = [data.text_content().strip() for data in bvb_row]
 
-            # Get the more information from Tradeville using the symbol name.
-            symbol_document = get_html_document(url=SYMBOL_URL + bvb_row[0])
-            symbol_data: Dict[str, float] = {
-                "symbol": bvb_row[0],
-                "weight": float(bvb_row[7].replace(",", ".")),
-                "shares": int(bvb_row[2].replace(".", "")),
-                "company": bvb_row[1],
-                "free_float_factor": float(bvb_row[4].replace(",", ".")),
-                "representation_factor": float(bvb_row[5].replace(",", ".")),
-                "price_correction_factor": float(bvb_row[6].replace(",", ".")),
-            }
+        # Get the more information from Tradeville using the symbol name.
+        symbol_document = get_html_document(url=SYMBOL_URL + bvb_row[0])
 
-            for row in symbol_document.xpath(
-                '//*[@id="ctl00_body_upd"]/div[2]/div/div[1]'
-            )[0][1][0]:
-                if row[0].text == "Ultimul pret":
-                    symbol_data["buy_price"] = float(row[1][0].text.replace(",", "."))
+        weight = min(round(float(bvb_row[7].replace(",", ".")), 2), weight_total)
+        weight_total = round(weight_total - weight, 2)
 
-                if row[0].text == "Pret deschidere":
-                    symbol_data["open_price"] = float(row[1][0].text.replace(",", "."))
+        symbol_data: Dict[str, float] = {
+            "symbol": bvb_row[0],
+            "weight": weight,
+            "shares": int(bvb_row[2].replace(".", "")),
+            "company": bvb_row[1],
+            "free_float_factor": float(bvb_row[4].replace(",", ".")),
+            "representation_factor": float(bvb_row[5].replace(",", ".")),
+            "price_correction_factor": float(bvb_row[6].replace(",", ".")),
+        }
 
-                if row[0].text == "Pret maxim":
-                    symbol_data["max_price"] = float(row[1][0].text.replace(",", "."))
+        for row in symbol_document.xpath('//*[@id="ctl00_body_upd"]/div[2]/div/div[1]')[
+            0
+        ][1][0]:
+            if row[0].text == "Ultimul pret":
+                symbol_data["buy_price"] = float(row[1][0].text.replace(",", "."))
 
-                if row[0].text == "Pret minim":
-                    symbol_data["min_price"] = float(row[1][0].text.replace(",", "."))
+            if row[0].text == "Pret deschidere":
+                symbol_data["open_price"] = float(row[1][0].text.replace(",", "."))
 
-                if row[0].text == "Pret mediu":
-                    symbol_data["medium_price"] = float(
-                        row[1][0].text.replace(",", ".")
-                    )
+            if row[0].text == "Pret maxim":
+                symbol_data["max_price"] = float(row[1][0].text.replace(",", "."))
 
-                if row[0].text == "Var (%)":
-                    symbol_data["variation"] = float(row[1][0].text.replace(",", "."))
+            if row[0].text == "Pret minim":
+                symbol_data["min_price"] = float(row[1][0].text.replace(",", "."))
 
-            for row in symbol_document.xpath(
-                '//*[@id="ctl00_body_ctl01_IndicatorsControl_dvIndicatori"]'
-            )[0]:
-                if "DIVY" in row[0].text:
-                    symbol_data["dividend_yield"] = float(
-                        row[1][0].text.replace(",", ".")
-                    )
+            if row[0].text == "Pret mediu":
+                symbol_data["medium_price"] = float(row[1][0].text.replace(",", "."))
 
-            # Build the list of symbols.
-            symbols_list.append(symbol_data)
-        except Exception as exc:
-            print(exc)
+            if row[0].text == "Var (%)":
+                symbol_data["variation"] = float(row[1][0].text.replace(",", "."))
+
+        for row in symbol_document.xpath(
+            '//*[@id="ctl00_body_ctl01_IndicatorsControl_dvIndicatori"]'
+        )[0]:
+            if "DIVY" in row[0].text:
+                symbol_data["dividend_yield"] = float(row[1][0].text.replace(",", "."))
+
+        # Build the list of symbols.
+        symbols_list.append(symbol_data)
 
     # The first element will be the time of the update.
     symbols_list.insert(

@@ -8,18 +8,20 @@ Index from the BVB and Tradeville websites.
 from datetime import datetime
 from json import dump
 from typing import Dict, List
+from zoneinfo import ZoneInfo
 
 from lxml.html import fromstring, HtmlElement
 from requests import get
-from zoneinfo import ZoneInfo
+
 
 BVB_URL: str = "https://www.bvb.ro/FinancialInstruments/Indices/IndicesProfiles.aspx"
 BVB_XPATH: str = '//*[@id="gvC"]//tbody'
 
 
 SYMBOL_URL: str = (
-    "https://m.bvb.ro/FinancialInstruments/Details/FinancialInstrumentsDetails.aspx?s="
+    "https://www.bvb.ro/FinancialInstruments/Details/FinancialInstrumentsDetails.aspx?s="
 )
+SYMBOL_XPATH: str = '//*[@id="ctl00_body_ctl02_PricesControl_dvCPrices"]'
 
 
 SYMBOLS_FILE_NAME: str = "symbols-data.json"
@@ -69,9 +71,6 @@ def collect_symbols_data(symbols_list_size: int) -> None:
     for bvb_row in bvb_document.xpath(BVB_XPATH)[0][:symbols_list_size]:
         bvb_row = [data.text_content().strip() for data in bvb_row]
 
-        # Get the more information from Tradeville using the symbol name.
-        symbol_document = get_html_document(url=SYMBOL_URL + bvb_row[0])
-
         weight = min(round(float(bvb_row[7].replace(",", ".")), 2), weight_total)
         weight_total = round(weight_total - weight, 2)
 
@@ -85,32 +84,26 @@ def collect_symbols_data(symbols_list_size: int) -> None:
             "price_correction_factor": float(bvb_row[6].replace(",", ".")),
         }
 
-        for row in symbol_document.xpath('//*[@id="ctl00_body_upd"]/div[2]/div/div[1]')[
-            0
-        ][1][0]:
+        # Get the more information from Tradeville using the symbol name.
+        symbol_document = get_html_document(url=SYMBOL_URL + bvb_row[0])
+        for row in symbol_document.xpath(SYMBOL_XPATH)[0]:
             if row[0].text == "Ultimul pret":
-                symbol_data["buy_price"] = float(row[1][0].text.replace(",", "."))
+                symbol_data["buy_price"] = float(row[1].text.replace(",", "."))
 
             if row[0].text == "Pret deschidere":
-                symbol_data["open_price"] = float(row[1][0].text.replace(",", "."))
+                symbol_data["open_price"] = float(row[1].text.replace(",", "."))
 
             if row[0].text == "Pret maxim":
-                symbol_data["max_price"] = float(row[1][0].text.replace(",", "."))
+                symbol_data["max_price"] = float(row[1].text.replace(",", "."))
 
             if row[0].text == "Pret minim":
-                symbol_data["min_price"] = float(row[1][0].text.replace(",", "."))
+                symbol_data["min_price"] = float(row[1].text.replace(",", "."))
 
             if row[0].text == "Pret mediu":
-                symbol_data["medium_price"] = float(row[1][0].text.replace(",", "."))
+                symbol_data["medium_price"] = float(row[1].text.replace(",", "."))
 
             if row[0].text == "Var (%)":
-                symbol_data["variation"] = float(row[1][0].text.replace(",", "."))
-
-        for row in symbol_document.xpath(
-            '//*[@id="ctl00_body_ctl01_IndicatorsControl_dvIndicatori"]'
-        )[0]:
-            if "DIVY" in row[0].text:
-                symbol_data["dividend_yield"] = float(row[1][0].text.replace(",", "."))
+                symbol_data["variation"] = float(row[1].text.replace(",", "."))
 
         # Build the list of symbols.
         symbols_list.append(symbol_data)
@@ -131,7 +124,11 @@ def get_html_document(url: str) -> HtmlElement:
     If the response failed, an Exception will be raised.
     Further, the information will be extracted using xpath.
     """
-    with get(url) as response:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.3",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    with get(url, headers=headers) as response:
         response.raise_for_status()
         return fromstring(response.content)
 

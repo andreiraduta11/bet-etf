@@ -285,7 +285,7 @@ class DashApplication(Dash):
         If the response failed, an Exception will be raised.
         Further, the information will be extracted using xpath.
         """
-        response = requests.get(url)
+        response = requests.get(url, timeout=10.0)
         response.raise_for_status()
 
         return fromstring(response.content)

@@ -128,7 +128,7 @@ def get_html_document(url: str) -> HtmlElement:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.3",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
-    with get(url, headers=headers) as response:
+    with get(url, headers=headers, timeout=10.0) as response:
         response.raise_for_status()
         return fromstring(response.content)
 

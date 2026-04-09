@@ -207,7 +207,7 @@ class DashApplication(Dash):
         Use the update-symbols-data.sh script to update that public file.
         Use this because PythonAnywhere whitelist for GET requests.
         """
-        response = requests.get(DATA_URL)
+        response = requests.get(DATA_URL, timeout=10.0)
         response.raise_for_status()
 
         self.symbols_time = loads(response.content)[0].get("date")

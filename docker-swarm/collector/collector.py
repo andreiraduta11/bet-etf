@@ -157,7 +157,7 @@ class Collector:
 
             If the response failed, an Exception will be raised.
         """
-        response = get(url)
+        response = get(url, timeout=10.0)
         response.raise_for_status()
 
         return fromstring(response.content)
